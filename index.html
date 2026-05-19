@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>سيف والعريس — نظام الإدارة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0A0A0A;color:#F0E6CC;font-family:'Cairo',sans-serif;direction:rtl;min-height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#111}
+::-webkit-scrollbar-thumb{background:#C9A84C55;border-radius:3px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.4s ease forwards}
+.gold-shimmer{background:linear-gradient(90deg,#C9A84C,#E8C97A,#A07830,#E8C97A,#C9A84C);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 4s linear infinite}
+input,textarea,select{background:#1A1A1A;border:1px solid #2A2A2A;color:#F0E6CC;font-family:'Cairo',sans-serif;border-radius:8px;padding:10px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s;direction:rtl}
+input:focus,textarea:focus,select:focus{border-color:#C9A84C}
+button{cursor:pointer;font-family:'Cairo',sans-serif}
+select option{background:#1A1A1A;color:#F0E6CC}
+@media(max-width:768px){
+  .sidebar{width:60px!important}
+  .sidebar .label{display:none!important}
+  .sidebar .logo-text{display:none!important}
+  .sidebar .footer-text{display:none!important}
+  .main-content{padding:16px!important}
+  .stats-grid{grid-template-columns:1fr 1fr!important}
+  .cards-2col{grid-template-columns:1fr!important}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useEffect} = React;
+
+// ── MOCK DATA ──────────────────────────────────────────────
+const INIT = {
+  products:[
+    {id:"p1",name:"بدلة كلاسيك أسود",category:"بدل رجالي",price:2500,stock:8,image:"👔",description:"بدلة كلاسيكية فاخرة قماش إيطالي",sizes:["46","48","50","52","54"]},
+    {id:"p2",name:"بدلة عريس ملكي",category:"بدل عريس",price:4500,stock:3,image:"🤵",description:"بدلة عريس بتصميم ملكي مطرز",sizes:["46","48","50","52"]},
+    {id:"p3",name:"سموكن ذهبي",category:"سموكن",price:3200,stock:5,image:"🎩",description:"سموكن فاخر للمناسبات الخاصة",sizes:["48","50","52","54"]},
+    {id:"p4",name:"بدلة نهارية بيضاء",category:"بدل رجالي",price:1800,stock:12,image:"👗",description:"بدلة بيضاء خفيفة للحفلات",sizes:["46","48","50","52","54","56"]},
+  ],
+  orders:[
+    {id:"o1",customer:"أحمد محمد",phone:"01012345678",product:"بدلة عريس ملكي",size:"50",status:"جاري",date:"2026-05-18",total:4500,notes:"تسليم قبل الفرح بأسبوع"},
+    {id:"o2",customer:"محمود علي",phone:"01198765432",product:"سموكن ذهبي",size:"52",status:"جاهز",date:"2026-05-15",total:3200,notes:""},
+    {id:"o3",customer:"خالد حسن",phone:"01234567890",product:"بدلة كلاسيك أسود",size:"48",status:"تسليم",date:"2026-05-10",total:2500,notes:"دفع مقدم 1000"},
+  ],
+  appointments:[
+    {id:"a1",customer:"سامي فريد",phone:"01011223344",date:"2026-05-22",time:"10:00",type:"قياس",notes:"بدلة عريس",status:"مؤكد"},
+    {id:"a2",customer:"عمر زيد",phone:"01155667788",date:"2026-05-23",time:"14:00",type:"تسليم",notes:"",status:"مؤكد"},
+    {id:"a3",customer:"يوسف أحمد",phone:"01099887766",date:"2026-05-25",time:"11:00",type:"استفسار",notes:"سعر بدل الأفراح",status:"انتظار"},
+  ]
+};
+
+const uid=()=>Math.random().toString(36).slice(2,9);
+const G={gold:"#C9A84C",goldLight:"#E8C97A",goldDark:"#A07830",black:"#0A0A0A",surface:"#111111",card:"#181818",border:"#2A2A2A",text:"#F0E6CC",muted:"#888"};
+const today=new Date().toISOString().slice(0,10);
+
+// ── COMPONENTS ────────────────────────────────────────────
+function GoldBtn({children,onClick,style,variant="primary",size="md"}){
+  const pad=size==="sm"?"6px 14px":size==="lg"?"14px 32px":"10px 20px";
+  const fs=size==="sm"?13:size==="lg"?16:14;
+  const vars={
+    primary:{background:"linear-gradient(135deg,#C9A84C,#E8C97A,#A07830)",color:"#0A0A0A",border:"none"},
+    ghost:{background:"transparent",border:"1px solid #C9A84C55",color:"#C9A84C"},
+    danger:{background:"#3A1A1A",border:"1px solid #8B2020",color:"#FF6666"},
+  };
+  return <button onClick={onClick}
+    style={{...vars[variant],borderRadius:8,fontWeight:700,fontFamily:"Cairo",cursor:"pointer",transition:"all 0.2s",display:"inline-flex",alignItems:"center",gap:6,padding:pad,fontSize:fs,...style}}
+    onMouseEnter={e=>e.currentTarget.style.transform="translateY(-1px)"}
+    onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+  >{children}</button>;
+}
+
+function Card({children,style}){
+  return <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:16,padding:20,...style}}>{children}</div>;
+}
+
+function Badge({children,color="gold"}){
+  const map={gold:{bg:"#C9A84C22",text:"#E8C97A",bd:"#C9A84C44"},green:{bg:"#1A3A1A",text:"#66BB66",bd:"#2A5A2A"},blue:{bg:"#1A1A3A",text:"#6666FF",bd:"#2A2A5A"},red:{bg:"#3A1A1A",text:"#FF6666",bd:"#5A2A2A"},gray:{bg:"#2A2A2A",text:"#888",bd:"#333"}};
+  const c=map[color]||map.gold;
+  return <span style={{background:c.bg,color:c.text,border:`1px solid ${c.bd}`,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{children}</span>;
+}
+
+function StatCard({icon,label,value,sub,color=G.gold}){
+  return <Card style={{display:"flex",alignItems:"center",gap:16}}>
+    <div style={{fontSize:28,background:`${color}22`,padding:12,borderRadius:12}}>{icon}</div>
+    <div>
+      <div style={{fontSize:22,fontWeight:900,color}}>{value}</div>
+      <div style={{fontSize:12,color:G.muted}}>{label}</div>
+      {sub&&<div style={{fontSize:11,color:G.goldDark,marginTop:2}}>{sub}</div>}
+    </div>
+  </Card>;
+}
+
+function Modal({title,children,onClose}){
+  return <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"#000000CC",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div className="fade-in" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:28,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <h3 style={{fontSize:18,fontWeight:700,color:G.gold}}>{title}</h3>
+        <button onClick={onClose} style={{background:"none",border:"none",color:G.muted,fontSize:22,cursor:"pointer"}}>✕</button>
+      </div>
+      {children}
+    </div>
+  </div>;
+}
+
+function Label({children}){return <label style={{fontSize:13,color:G.muted,display:"block",marginBottom:6}}>{children}</label>;}
+
+function OBadge({status}){
+  const map={جاري:"gold",جاهز:"green",تسليم:"blue",ملغي:"red",مؤكد:"green",انتظار:"gray"};
+  return <Badge color={map[status]||"gray"}>{status}</Badge>;
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function Dashboard({data}){
+  const rev=data.orders.reduce((s,o)=>s+o.total,0);
+  const pend=data.orders.filter(o=>o.status==="جاري").length;
+  const low=data.products.filter(p=>p.stock<=3).length;
+  const todayA=data.appointments.filter(a=>a.date===today).length;
+  return <div className="fade-in">
+    <h2 style={{fontSize:20,fontWeight:800,marginBottom:20,color:G.gold}}>🏠 لوحة التحكم</h2>
+    <div className="stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:24}}>
+      <StatCard icon="💰" label="إجمالي الإيرادات" value={`${rev.toLocaleString()} ج`} color={G.gold}/>
+      <StatCard icon="📦" label="المنتجات" value={data.products.length} sub={low>0?`⚠️ ${low} مخزون منخفض`:"✅ المخزون كويس"} color="#66BB66"/>
+      <StatCard icon="🛍️" label="الطلبات" value={data.orders.length} sub={`${pend} قيد التنفيذ`} color="#E8C97A"/>
+      <StatCard icon="📅" label="مواعيد اليوم" value={todayA} color="#6699FF"/>
+    </div>
+    <div className="cards-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+      <Card>
+        <h3 style={{fontSize:14,fontWeight:700,marginBottom:14,color:G.gold}}>آخر الطلبات</h3>
+        {data.orders.slice(0,4).map(o=><div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${G.border}`}}>
+          <div><div style={{fontSize:13,fontWeight:600}}>{o.customer}</div><div style={{fontSize:11,color:G.muted}}>{o.product}</div></div>
+          <div style={{textAlign:"left"}}><div style={{fontSize:13,color:G.gold,fontWeight:700}}>{o.total} ج</div><OBadge status={o.status}/></div>
+        </div>)}
+      </Card>
+      <Card>
+        <h3 style={{fontSize:14,fontWeight:700,marginBottom:14,color:G.gold}}>أقرب المواعيد</h3>
+        {data.appointments.slice(0,4).map(a=><div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${G.border}`}}>
+          <div><div style={{fontSize:13,fontWeight:600}}>{a.customer}</div><div style={{fontSize:11,color:G.muted}}>{a.type} — {a.time}</div></div>
+          <div style={{fontSize:11,color:G.goldLight}}>{a.date}</div>
+        </div>)}
+      </Card>
+    </div>
+  </div>;
+}
+
+// ── PRODUCTS ──────────────────────────────────────────────
+function Products({data,setData}){
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
+  const [search,setSearch]=useState("");
+  const [filter,setFilter]=useState("الكل");
+  const cats=["الكل",...new Set(data.products.map(p=>p.category))];
+  const filtered=data.products.filter(p=>(filter==="الكل"||p.category===filter)&&(p.name.includes(search)||p.category.includes(search)));
+  const F=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const save=()=>{
+    if(!form.name||!form.price)return alert("اسم المنتج والسعر مطلوبين");
+    if(modal==="add") setData(d=>({...d,products:[...d.products,{...form,id:uid(),price:+form.price,stock:+form.stock,image:"👔",sizes:["46","48","50","52"]}]}));
+    else setData(d=>({...d,products:d.products.map(p=>p.id===form.id?{...form,price:+form.price,stock:+form.stock}:p)}));
+    setModal(null);
+  };
+  const del=id=>{if(window.confirm("تأكيد حذف المنتج؟"))setData(d=>({...d,products:d.products.filter(p=>p.id!==id)}));};
+  return <div className="fade-in">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+      <h2 style={{fontSize:20,fontWeight:800,color:G.gold}}>👔 المنتجات والكتالوج</h2>
+      <GoldBtn onClick={()=>{setForm({name:"",category:"بدل رجالي",price:"",stock:"",description:""});setModal("add");}}>+ إضافة منتج</GoldBtn>
+    </div>
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+      <input placeholder="🔍 ابحث..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:180}}/>
+      {cats.map(c=><button key={c} onClick={()=>setFilter(c)} style={{background:filter===c?G.gold:"transparent",color:filter===c?G.black:G.muted,border:`1px solid ${filter===c?G.gold:G.border}`,borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"Cairo"}}>{c}</button>)}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:14}}>
+      {filtered.map(p=><Card key={p.id} style={{display:"flex",flexDirection:"column",gap:12,position:"relative"}}>
+        {p.stock<=3&&<div style={{position:"absolute",top:10,left:10}}><Badge color="red">مخزون منخفض</Badge></div>}
+        <div style={{fontSize:56,textAlign:"center",background:"#1A1A1A",borderRadius:12,padding:"16px 0"}}>{p.image}</div>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{p.name}</div>
+          <div style={{fontSize:11,color:G.muted,marginBottom:6}}>{p.description}</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+            {(p.sizes||[]).map(s=><span key={s} style={{background:"#222",borderRadius:4,padding:"1px 7px",fontSize:11}}>{s}</span>)}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:16,fontWeight:800,color:G.gold}}>{p.price?.toLocaleString()} ج</span>
+            <span style={{fontSize:12,color:p.stock<=3?"#FF6666":"#66BB66"}}>الكمية: {p.stock}</span>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <GoldBtn size="sm" onClick={()=>{setForm({...p});setModal("edit");}} style={{flex:1}}>✏️ تعديل</GoldBtn>
+          <GoldBtn size="sm" variant="danger" onClick={()=>del(p.id)}>🗑️</GoldBtn>
+        </div>
+      </Card>)}
+    </div>
+    {modal&&<Modal title={modal==="add"?"إضافة منتج جديد":"تعديل المنتج"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <div><Label>اسم المنتج</Label><input value={form.name||""} onChange={e=>F("name",e.target.value)} placeholder="اسم البدلة..."/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><Label>التصنيف</Label><select value={form.category||""} onChange={e=>F("category",e.target.value)}><option>بدل رجالي</option><option>بدل عريس</option><option>سموكن</option><option>إكسسوارات</option></select></div>
+          <div><Label>السعر (ج)</Label><input type="number" value={form.price||""} onChange={e=>F("price",e.target.value)} placeholder="0"/></div>
+        </div>
+        <div><Label>الكمية</Label><input type="number" value={form.stock||""} onChange={e=>F("stock",e.target.value)} placeholder="0"/></div>
+        <div><Label>الوصف</Label><textarea rows={2} value={form.description||""} onChange={e=>F("description",e.target.value)} placeholder="وصف المنتج..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <GoldBtn variant="ghost" onClick={()=>setModal(null)}>إلغاء</GoldBtn>
+          <GoldBtn onClick={save}>💾 حفظ</GoldBtn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── ORDERS ────────────────────────────────────────────────
+function Orders({data,setData}){
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
+  const [fs,setFs]=useState("الكل");
+  const statuses=["الكل","جاري","جاهز","تسليم","ملغي"];
+  const filtered=data.orders.filter(o=>fs==="الكل"||o.status===fs);
+  const F=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const save=()=>{
+    if(!form.customer||!form.product)return alert("اسم العميل والمنتج مطلوبين");
+    if(modal==="add") setData(d=>({...d,orders:[{...form,id:uid(),total:+form.total},...d.orders]}));
+    else setData(d=>({...d,orders:d.orders.map(o=>o.id===form.id?{...form,total:+form.total}:o)}));
+    setModal(null);
+  };
+  const del=id=>{if(window.confirm("حذف الطلب؟"))setData(d=>({...d,orders:d.orders.filter(o=>o.id!==id)}));};
+  const nextStatus={جاري:"جاهز",جاهز:"تسليم"};
+  return <div className="fade-in">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+      <h2 style={{fontSize:20,fontWeight:800,color:G.gold}}>🛍️ طلبات العملاء</h2>
+      <GoldBtn onClick={()=>{setForm({customer:"",phone:"",product:"",size:"50",status:"جاري",total:"",notes:"",date:today});setModal("add");}}>+ طلب جديد</GoldBtn>
+    </div>
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+      {statuses.map(s=><button key={s} onClick={()=>setFs(s)} style={{background:fs===s?G.gold:"transparent",color:fs===s?G.black:G.muted,border:`1px solid ${fs===s?G.gold:G.border}`,borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"Cairo"}}>{s}</button>)}
+    </div>
+    <div style={{display:"grid",gap:12}}>
+      {filtered.map(o=><Card key={o.id} style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:180}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+            <span style={{fontWeight:700,fontSize:14}}>{o.customer}</span><OBadge status={o.status}/>
+          </div>
+          <div style={{fontSize:12,color:G.muted}}>📞 {o.phone}</div>
+          <div style={{fontSize:12,marginTop:4}}>👔 {o.product} — مقاس {o.size}</div>
+          {o.notes&&<div style={{fontSize:11,color:G.goldDark,marginTop:4}}>📝 {o.notes}</div>}
+        </div>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:18,fontWeight:800,color:G.gold}}>{o.total?.toLocaleString()} ج</div>
+          <div style={{fontSize:11,color:G.muted}}>{o.date}</div>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {nextStatus[o.status]&&<GoldBtn size="sm" variant="ghost" onClick={()=>setData(d=>({...d,orders:d.orders.map(x=>x.id===o.id?{...x,status:nextStatus[o.status]}:x)}))}>→ {nextStatus[o.status]}</GoldBtn>}
+          <GoldBtn size="sm" onClick={()=>{setForm({...o});setModal("edit");}}>✏️</GoldBtn>
+          <GoldBtn size="sm" variant="danger" onClick={()=>del(o.id)}>🗑️</GoldBtn>
+        </div>
+      </Card>)}
+    </div>
+    {modal&&<Modal title={modal==="add"?"طلب جديد":"تعديل الطلب"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><Label>اسم العميل</Label><input value={form.customer||""} onChange={e=>F("customer",e.target.value)} placeholder="الاسم"/></div>
+          <div><Label>رقم الهاتف</Label><input value={form.phone||""} onChange={e=>F("phone",e.target.value)} placeholder="010..."/></div>
+        </div>
+        <div><Label>المنتج</Label>
+          <select value={form.product||""} onChange={e=>F("product",e.target.value)}>
+            <option value="">اختر منتج</option>
+            {data.products.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+          </select>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <div><Label>المقاس</Label><input value={form.size||""} onChange={e=>F("size",e.target.value)} placeholder="50"/></div>
+          <div><Label>الإجمالي (ج)</Label><input type="number" value={form.total||""} onChange={e=>F("total",e.target.value)} placeholder="0"/></div>
+          <div><Label>الحالة</Label><select value={form.status||"جاري"} onChange={e=>F("status",e.target.value)}><option>جاري</option><option>جاهز</option><option>تسليم</option><option>ملغي</option></select></div>
+        </div>
+        <div><Label>ملاحظات</Label><textarea rows={2} value={form.notes||""} onChange={e=>F("notes",e.target.value)} placeholder="أي ملاحظات..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <GoldBtn variant="ghost" onClick={()=>setModal(null)}>إلغاء</GoldBtn>
+          <GoldBtn onClick={save}>💾 حفظ</GoldBtn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── APPOINTMENTS ──────────────────────────────────────────
+function Appointments({data,setData}){
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
+  const F=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const sorted=[...data.appointments].sort((a,b)=>a.date.localeCompare(b.date));
+  const grouped=sorted.reduce((acc,a)=>{(acc[a.date]=acc[a.date]||[]).push(a);return acc;},{});
+  const save=()=>{
+    if(!form.customer||!form.date)return alert("اسم العميل والتاريخ مطلوبين");
+    if(modal==="edit") setData(d=>({...d,appointments:d.appointments.map(a=>a.id===form.id?form:a)}));
+    else setData(d=>({...d,appointments:[...d.appointments,{...form,id:uid()}]}));
+    setModal(null);
+  };
+  const del=id=>{if(window.confirm("حذف الموعد؟"))setData(d=>({...d,appointments:d.appointments.filter(a=>a.id!==id)}));};
+  const typeIcon={قياس:"📏",تسليم:"📦",استفسار:"💬",تعديل:"✂️"};
+  return <div className="fade-in">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+      <h2 style={{fontSize:20,fontWeight:800,color:G.gold}}>📅 المواعيد</h2>
+      <GoldBtn onClick={()=>{setForm({customer:"",phone:"",date:today,time:"10:00",type:"قياس",notes:"",status:"مؤكد"});setModal("add");}}>+ موعد جديد</GoldBtn>
+    </div>
+    {Object.entries(grouped).map(([date,appts])=><div key={date} style={{marginBottom:22}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+        <div style={{height:1,flex:1,background:G.border}}/>
+        <span style={{fontSize:12,fontWeight:700,color:date===today?G.gold:G.muted,padding:"3px 12px",background:date===today?"#C9A84C22":"#222",borderRadius:20,border:`1px solid ${date===today?G.gold:G.border}`}}>
+          {date===today?"📍 اليوم — ":""}{date}
+        </span>
+        <div style={{height:1,flex:1,background:G.border}}/>
+      </div>
+      <div style={{display:"grid",gap:10}}>
+        {appts.map(a=><Card key={a.id} style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+          <div style={{fontSize:28,background:"#1A1A1A",padding:"10px 14px",borderRadius:10}}>{typeIcon[a.type]||"📅"}</div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+              <span style={{fontWeight:700}}>{a.customer}</span>
+              <OBadge status={a.status}/><Badge color="gold">{a.type}</Badge>
+            </div>
+            <div style={{fontSize:12,color:G.muted}}>📞 {a.phone} • 🕐 {a.time}</div>
+            {a.notes&&<div style={{fontSize:11,color:G.goldDark,marginTop:4}}>📝 {a.notes}</div>}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <GoldBtn size="sm" onClick={()=>{setForm({...a});setModal("edit");}}>✏️</GoldBtn>
+            <GoldBtn size="sm" variant="danger" onClick={()=>del(a.id)}>🗑️</GoldBtn>
+          </div>
+        </Card>)}
+      </div>
+    </div>)}
+    {modal&&<Modal title={modal==="edit"?"تعديل الموعد":"موعد جديد"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><Label>اسم العميل</Label><input value={form.customer||""} onChange={e=>F("customer",e.target.value)} placeholder="الاسم"/></div>
+          <div><Label>رقم الهاتف</Label><input value={form.phone||""} onChange={e=>F("phone",e.target.value)} placeholder="010..."/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><Label>التاريخ</Label><input type="date" value={form.date||""} onChange={e=>F("date",e.target.value)}/></div>
+          <div><Label>الوقت</Label><input type="time" value={form.time||""} onChange={e=>F("time",e.target.value)}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><Label>نوع الموعد</Label><select value={form.type||"قياس"} onChange={e=>F("type",e.target.value)}><option>قياس</option><option>تسليم</option><option>استفسار</option><option>تعديل</option></select></div>
+          <div><Label>الحالة</Label><select value={form.status||"مؤكد"} onChange={e=>F("status",e.target.value)}><option>مؤكد</option><option>انتظار</option><option>ملغي</option></select></div>
+        </div>
+        <div><Label>ملاحظات</Label><textarea rows={2} value={form.notes||""} onChange={e=>F("notes",e.target.value)} placeholder="أي ملاحظات..."/></div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <GoldBtn variant="ghost" onClick={()=>setModal(null)}>إلغاء</GoldBtn>
+          <GoldBtn onClick={save}>💾 حفظ</GoldBtn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── INVENTORY ─────────────────────────────────────────────
+function Inventory({data,setData}){
+  const low=data.products.filter(p=>p.stock<=3);
+  const totalVal=data.products.reduce((s,p)=>s+p.price*p.stock,0);
+  const upd=(id,d)=>setData(db=>({...db,products:db.products.map(p=>p.id===id?{...p,stock:Math.max(0,p.stock+d)}:p)}));
+  return <div className="fade-in">
+    <h2 style={{fontSize:20,fontWeight:800,marginBottom:20,color:G.gold}}>📦 إدارة المخزون</h2>
+    <div className="stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:24}}>
+      <StatCard icon="💎" label="قيمة المخزون" value={`${totalVal.toLocaleString()} ج`}/>
+      <StatCard icon="📊" label="إجمالي الأصناف" value={data.products.length}/>
+      <StatCard icon="⚠️" label="مخزون منخفض" value={low.length} color="#FF6666"/>
+      <StatCard icon="✅" label="مخزون كافي" value={data.products.filter(p=>p.stock>3).length} color="#66BB66"/>
+    </div>
+    {low.length>0&&<Card style={{marginBottom:18,border:"1px solid #5A2A2A",background:"#1A0A0A"}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#FF6666",marginBottom:8}}>⚠️ منتجات تحتاج إعادة تخزين</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{low.map(p=><Badge key={p.id} color="red">{p.name} ({p.stock})</Badge>)}</div>
+    </Card>}
+    <div style={{display:"grid",gap:12}}>
+      {data.products.map(p=><Card key={p.id} style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        <div style={{fontSize:32}}>{p.image}</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,marginBottom:2}}>{p.name}</div>
+          <div style={{fontSize:12,color:G.muted}}>{p.category} • {p.price?.toLocaleString()} ج</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>upd(p.id,-1)} style={{background:"#2A1A1A",border:"1px solid #5A2A2A",color:"#FF6666",borderRadius:6,width:32,height:32,fontSize:18,cursor:"pointer"}}>−</button>
+          <span style={{fontSize:20,fontWeight:800,color:p.stock<=3?"#FF6666":G.gold,minWidth:36,textAlign:"center"}}>{p.stock}</span>
+          <button onClick={()=>upd(p.id,+1)} style={{background:"#1A2A1A",border:"1px solid #2A5A2A",color:"#66BB66",borderRadius:6,width:32,height:32,fontSize:18,cursor:"pointer"}}>+</button>
+          <span style={{fontSize:11,color:G.muted}}>{(p.price*p.stock).toLocaleString()} ج</span>
+        </div>
+      </Card>)}
+    </div>
+  </div>;
+}
+
+// ── MAIN APP ──────────────────────────────────────────────
+const PAGES=[
+  {id:"dashboard",label:"الرئيسية",icon:"🏠"},
+  {id:"products",label:"المنتجات",icon:"👔"},
+  {id:"orders",label:"الطلبات",icon:"🛍️"},
+  {id:"appointments",label:"المواعيد",icon:"📅"},
+  {id:"inventory",label:"المخزون",icon:"📦"},
+];
+
+function App(){
+  const [page,setPage]=useState("dashboard");
+  const [data,setData]=useState(INIT);
+  const [menuOpen,setMenuOpen]=useState(false);
+  const pending=data.orders.filter(o=>o.status==="جاري").length;
+
+  return <div style={{display:"flex",minHeight:"100vh",background:G.black}}>
+    {/* SIDEBAR */}
+    <aside className="sidebar" style={{width:220,background:G.surface,borderLeft:`1px solid ${G.border}`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,zIndex:100}}>
+      <div style={{padding:"20px 16px",borderBottom:`1px solid ${G.border}`,textAlign:"center"}}>
+        <div style={{fontSize:26,marginBottom:6}}>🎩</div>
+        <div className="gold-shimmer logo-text" style={{fontSize:16,fontWeight:900,fontFamily:"Amiri"}}>سيف والعريس</div>
+        <div className="label" style={{fontSize:10,color:G.muted,marginTop:2}}>إدارة أبو سيف</div>
+      </div>
+      <nav style={{flex:1,padding:"12px 10px",display:"flex",flexDirection:"column",gap:3}}>
+        {PAGES.map(p=><button key={p.id} onClick={()=>setPage(p.id)} style={{
+          display:"flex",alignItems:"center",gap:8,padding:"11px 12px",borderRadius:10,border:"none",
+          background:page===p.id?"#C9A84C22":"transparent",color:page===p.id?G.gold:G.muted,
+          fontFamily:"Cairo",fontSize:14,fontWeight:page===p.id?700:400,cursor:"pointer",
+          borderRight:page===p.id?`3px solid ${G.gold}`:"3px solid transparent",
+          transition:"all 0.2s",width:"100%",textAlign:"right"
+        }}>
+          <span>{p.icon}</span>
+          <span className="label">{p.label}</span>
+          {p.id==="orders"&&pending>0&&<span className="label" style={{marginRight:"auto",background:G.gold,color:G.black,borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:800}}>{pending}</span>}
+        </button>)}
+      </nav>
+      <div style={{padding:14,borderTop:`1px solid ${G.border}`,textAlign:"center"}}>
+        <div className="footer-text" style={{fontSize:11,color:G.muted}}>01009331804<br/>01229723129</div>
+      </div>
+    </aside>
+
+    {/* CONTENT */}
+    <main className="main-content" style={{flex:1,padding:24,overflowY:"auto"}}>
+      {page==="dashboard"&&<Dashboard data={data}/>}
+      {page==="products"&&<Products data={data} setData={setData}/>}
+      {page==="orders"&&<Orders data={data} setData={setData}/>}
+      {page==="appointments"&&<Appointments data={data} setData={setData}/>}
+      {page==="inventory"&&<Inventory data={data} setData={setData}/>}
+    </main>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
